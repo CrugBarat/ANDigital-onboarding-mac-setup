@@ -1,0 +1,254 @@
+#!/bin/sh
+
+# Welcome to a fork of the thoughtbot laptop script!
+# Be prepared to turn your laptop (or desktop, no haters here)
+# into an awesome development machine.
+
+fancy_echo() {
+  local fmt="$1"; shift
+
+  # shellcheck disable=SC2059
+  printf "\n$fmt\n" "$@"
+}
+
+append_to_zshrc() {
+  local text="$1" zshrc
+  local skip_new_line="${2:-0}"
+
+  if [ -w "$HOME/.zshrc.local" ]; then
+    zshrc="$HOME/.zshrc.local"
+  else
+    zshrc="$HOME/.zshrc"
+  fi
+
+  if ! grep -Fqs "$text" "$zshrc"; then
+    if [ "$skip_new_line" -eq 1 ]; then
+      printf "%s\n" "$text" >> "$zshrc"
+    else
+      printf "\n%s\n" "$text" >> "$zshrc"
+    fi
+  fi
+}
+
+create_folder_if_not_there() {
+  local folder="$1"
+
+  if [ -d "$folder" ]; then
+    if ! [ -r "$folder" ]; then
+      sudo chown -R "$LOGNAME:admin" "$folder"
+    fi
+  else
+    sudo mkdir -p "$folder"
+    sudo chflags norestricted "$folder"
+    sudo chown -R "$LOGNAME:admin" "$folder"
+  fi
+}
+
+is_app_installed() {
+    local appNameOrBundleId=$1 bundleId
+
+    # convert app name to bundle ID
+    bundleId=$(osascript -e "id of application \"$appNameOrBundleId\"" 2>/dev/null) || { return 1; }
+
+    # search for location of app with given bundle ID
+    osascript -e "tell application \"Finder\" to POSIX path of (get application file id \"$bundleId\" as alias)" 2>/dev/null || { return 1; }
+}
+
+install_gui_app() {
+  local appName="$1" caskName="$2"
+
+  is_app_installed "$appName"
+  if [ $? -eq 1 ]; then
+    brew install --cask "$caskName"
+  fi
+}
+
+
+# Check for Terminal running in ARM mode, install Rosetta, exit script
+ARCH=$(arch)
+if [[ "$ARCH" == "arm64" ]]; then
+    /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+    fancy_echo "\e[1;34m *** CodeClan - \e[1;31mAdditional manual steps required please visit - \033[0m"
+    fancy_echo "https://github.com/codeclan/laptop/blob/master/apple_silicon.md"
+    fancy_echo ""
+    exit 0
+fi
+
+# Check for Xcode Devtools and wait for them to be installed before continuing
+xcode-select -p 2>/dev/null
+return_code=$?
+
+while [ $return_code -eq 2 ]
+do
+  fancy_echo "\033[1;31mApple's Xcode Developer Tools are not installed!\033[0m"
+  fancy_echo "\033[1;31mPlease install them through the dialog box before continuing with running this installation script.\033[0m"
+  fancy_echo "Many of the tools used in this script will not work without the Xcode developer tools"
+  fancy_echo "Opening 'Install Command Line Developer Tools'"
+  xcode-select --install 1>/dev/null
+  fancy_echo "Press enter to try again once Xcode developer tools are installed"
+  read input
+  xcode-select -p
+  return_code=$?
+done
+
+if [ ! -d "$HOME/.bin/" ]; then
+  mkdir "$HOME/.bin"
+fi
+
+if [ ! -f "$HOME/.zshrc" ]; then
+  touch "$HOME/.zshrc"
+fi
+
+# shellcheck disable=SC2016
+append_to_zshrc 'export PATH="$HOME/.bin:$PATH"'
+
+HOMEBREW_PREFIX="/usr/local"
+create_folder_if_not_there "$HOMEBREW_PREFIX"
+
+case "$SHELL" in
+  */zsh) : ;;
+  *)
+    fancy_echo "Changing your shell to zsh ..."
+      chsh -s "$(which zsh)"
+    ;;
+esac
+
+gem_install_or_update() {
+  if gem list "$1" --installed > /dev/null; then
+    gem update "$@"
+  else
+    gem install "$@"
+    rbenv rehash
+  fi
+}
+
+if ! command -v brew >/dev/null; then
+  fancy_echo "Installing Homebrew ..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    append_to_zshrc '# recommended by brew doctor'
+
+    # shellcheck disable=SC2016
+    append_to_zshrc 'export PATH="/usr/local/bin:$PATH"' 1
+
+    export PATH="/usr/local/bin:$PATH"
+fi
+
+if brew list --formula | grep -Fq brew-cask; then
+  fancy_echo "Uninstalling old Homebrew-Cask ..."
+  brew uninstall --force brew-cask
+fi
+
+fancy_echo "Updating Homebrew formulae ..."
+brew update
+brew bundle --file=- <<EOF
+tap "homebrew/services"
+tap "homebrew/cask-fonts"
+
+# Unix
+brew "git"
+brew "zsh"
+brew "tree"
+
+# Programming languages
+brew "node"
+brew "rbenv"
+brew "ruby-build"
+brew "python"
+
+# Fix for forcing java8 install
+tap "adoptopenjdk/openjdk"
+cask "adoptopenjdk/openjdk/adoptopenjdk8"
+
+# Databases
+brew "postgres", restart_service: true
+tap "mongodb/brew"
+brew  "mongodb-community", restart_service: true
+cask "mongodb-compass"
+
+# Fonts
+cask "font-open-dyslexic"
+
+# Docker
+cask "docker"
+EOF
+
+fancy_echo "Installing Oh-My-Zsh ..."
+curl -L \
+  "https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh" | sh
+
+
+fancy_echo "Installing GUI apps"
+
+# Web browsing
+install_gui_app "google chrome" "google-chrome"
+
+# Chat
+install_gui_app "slack" "slack"
+
+# Insomnia
+install_gui_app "insomnia" "insomnia"
+
+# Postico
+install_gui_app "postico" "postico"
+
+# VSCode
+install_gui_app "visual studio code" "visual-studio-code"
+cat << EOF >> ~/.zshrc
+# Add Visual Studio Code (code)
+export PATH="\$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
+EOF
+code --install-extension ms-vsliveshare.vsliveshare
+
+fancy_echo "Configuring Ruby ..."
+find_latest_ruby() {
+  rbenv install -l | grep -v - | tail -1 | sed -e 's/^ *//'
+}
+
+ruby_version="2.6.5"
+# shellcheck disable=SC2016
+append_to_zshrc 'eval "$(rbenv init - --no-rehash)"' 1
+eval "$(rbenv init -)"
+
+if ! rbenv versions | grep -Fq "$ruby_version"; then
+  rbenv install -s "$ruby_version"
+fi
+
+rbenv global "$ruby_version"
+rbenv shell "$ruby_version"
+gem update --system
+gem_install_or_update 'bundler'
+number_of_cores=$(sysctl -n hw.ncpu)
+bundle config --global jobs $((number_of_cores - 1))
+rbenv rehash
+
+fancy_echo "Skipping rdoc generation when we install a gem"
+echo 'gem: --no-rdoc --no-ri' >> ~/.gemrc
+
+if [ -f "$HOME/.laptop.local" ]; then
+  fancy_echo "Running your customizations from ~/.laptop.local ..."
+  # shellcheck disable=SC1090
+  . "$HOME/.laptop.local"
+fi
+
+fancy_echo "Globally ignoring .DS_Store files"
+echo .DS_Store >> ~/.gitignore_global
+git config --global core.excludesfile ~/.gitignore_global
+git config --global init.defaultBranch main
+
+fancy_echo "Creating Postgres database under current user name"
+if ! psql -lqt | cut -d \| -f 1 | grep -qw "$(whoami)" >/dev/null; then
+  createdb "$(whoami)"
+fi
+createuser "postgres"
+
+# IntelliJ
+fancy_echo "Installing IntelliJ"
+install_gui_app "intellij idea ce" "intellij-idea-ce"
+
+fancy_echo "Checking for unsuccessful installs"
+
+curl --remote-name "https://raw.githubusercontent.com/codeclan/laptop/master/laptop_install_test"
+sh laptop_install_test
+
+fancy_echo "Beep bop boop - script has finished 😎 "
