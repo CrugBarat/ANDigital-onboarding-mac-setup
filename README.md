@@ -27,7 +27,7 @@ To open Terminal:
 Copy the below code command into Terminal and hit enter:
 
 ```sh
-curl --remote-name https://raw.githubusercontent.com/codeclan/laptop/master/mac
+curl --remote-name https://raw.githubusercontent.com/CrugBarat/ANDigital-onboarding-mac-setup/develop/mac
 ```
 
 Then run it and start the installation:
@@ -43,7 +43,7 @@ At the end of the installation script, another script will run to attempt to che
 You can repeat this by running the following lines in terminal:
 
 ```sh
-curl --remote-name https://raw.githubusercontent.com/codeclan/laptop/master/laptop_install_test
+curl --remote-name https://raw.githubusercontent.com/ANDigital-onboarding-mac-setup/develop/laptop_install_test
 sh laptop_install_test
 ```
 
