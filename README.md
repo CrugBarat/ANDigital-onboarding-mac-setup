@@ -24,7 +24,7 @@ To open Terminal:
 1. Press Command+Space and search for Terminal.
 2. Hit enter
 
-Copy the below code command into Terminal and hit enter:
+Copy the below command into Terminal and hit enter:
 
 ```sh
 curl --remote-name https://raw.githubusercontent.com/CrugBarat/ANDigital-onboarding-mac-setup/develop/mac
