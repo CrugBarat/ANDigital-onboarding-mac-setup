@@ -248,7 +248,7 @@ install_gui_app "intellij idea ce" "intellij-idea-ce"
 
 fancy_echo "Checking for unsuccessful installs"
 
-curl --remote-name "https://raw.githubusercontent.com/codeclan/laptop/master/laptop_install_test"
+curl --remote-name "https://raw.githubusercontent.com/CrugBarat/ANDigital-onboarding-mac-setup/develop/laptop_install_test"
 sh laptop_install_test
 
 fancy_echo "Beep bop boop - script has finished 😎 "

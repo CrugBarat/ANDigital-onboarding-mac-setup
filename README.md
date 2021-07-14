@@ -47,9 +47,9 @@ At the end of the installation script, another script will run to attempt to che
 You can repeat this by running the following lines in terminal (although it's **not required**):
 
 ```sh
-curl --remote-name https://raw.githubusercontent.com/ANDigital-onboarding-mac-setup/develop/laptop_install_test
+curl --remote-name https://raw.githubusercontent.com/CrugBarat/ANDigital-onboarding-mac-setup/develop/laptop_install_test
 sh laptop_install_test
-```  
+```
 
 NB: If you have any issues with running these scripts, please reach out to your AND Onboarding Admin.
 
