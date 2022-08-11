@@ -10,6 +10,7 @@ Forked from [here](https://github.com/codeclan/laptop)
 
 We support:
 
+- macOS Monterey (12)
 - macOS Big Sur (11)
 - macOS Catalina (10.15)
 
